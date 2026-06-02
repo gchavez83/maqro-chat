@@ -1,0 +1,13 @@
+# Secrets — nunca versionar
+.streamlit/secrets.toml
+
+# Logs de consultas — datos locales
+logs/
+
+# Logs de proceso Streamlit
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.env
