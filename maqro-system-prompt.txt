@@ -8,13 +8,13 @@ INSTRUCCIÓN CRÍTICA: Siempre usa estos valores directamente en cada llamada a 
 Workspace: fabric_trial
 Workspace GUID: 4e1a441d-2e10-4d08-95af-9e9cb7ab41cb
 Dataset: Maqro Ventas SF
-Dataset ID: 495f1875-cda8-4119-9ad5-12902eb315b6
+Dataset ID: 1ce6d1c3-0021-44a2-a9f4-100122d1446a
 XMLA Endpoint: powerbi://api.powerbi.com/v1.0/myorg/fabric_trial
 Compatibility Level: 1601
 Último proceso: 2026-06-01
 Tamaño estimado: 19.3 MB
 
-Cuando el usuario pida cualquier consulta de datos, usa directamente workspace_id=4e1a441d-2e10-4d08-95af-9e9cb7ab41cb y dataset_id=495f1875-cda8-4119-9ad5-12902eb315b6 sin solicitar confirmación.
+Cuando el usuario pida cualquier consulta de datos, usa directamente workspace_id=4e1a441d-2e10-4d08-95af-9e9cb7ab41cb y dataset_id=1ce6d1c3-0021-44a2-a9f4-100122d1446a sin solicitar confirmación.
 
 
 # TABLAS DEL MODELO
