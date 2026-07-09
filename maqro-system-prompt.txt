@@ -34,7 +34,7 @@ Columnas:
 - precio_venta (Double): precio real de venta; usado en "Total de Ventas"
 - fecha (DateTime): columna de fecha PRINCIPAL para la relación con Calendario. Usar esta en relaciones, nunca fecha_time
 - fecha_time (DateTime): fecha con hora; usada en análisis de rutas y filtros intra-día
-- estatus (String): estado de la venta. Valores: activo, cancelado, pendiente
+- estatus (String): estado de la venta. Valores REALES en los datos: activo, eliminado, inactivo (NO existen "cancelado" ni "pendiente"). REGLA CRÍTICA DE NEGOCIO: solo las ventas con estatus="activo" son ventas reales. Las medidas como [Total de Ventas], [Total de Costo], [Utilidad], [Cantidad Vendida], etc. NO filtran estatus por sí solas e incluyen ventas eliminadas e inactivas. Por eso, SIEMPRE que calcules ventas, costos, cantidades, utilidad o cualquier importe, filtra ventas_productos[estatus]="activo" — por ejemplo CALCULATE([Total de Ventas], ventas_productos[estatus]="activo"), o agregando ventas_productos[estatus]="activo" como filtro del CALCULATETABLE. Esto garantiza que los números coincidan con los reportes oficiales de Power BI.
 - latitud (Double): coordenada geográfica del cliente. BLANK indica sin georeferencia
 - longitud (Double): coordenada geográfica del cliente
 - StreetView (String): URL de Google Street View del cliente
