@@ -110,13 +110,28 @@ def _current_date_block() -> str:
 
 def _secret(name: str, default: str = "") -> str:
     try:
-        return st.secrets[name]
-    except (KeyError, FileNotFoundError):
-        return os.environ.get(name, default)
+        val = st.secrets.get(name)
+        if val:
+            return val
+    except Exception:
+        pass
+    return os.environ.get(name, default)
+
+
+def _last_refresh() -> str | None:
+    """
+    Wrapper: cachea solo los aciertos. Si falla (p. ej. faltan secrets),
+    limpia la caché para reintentar en el siguiente rerun en lugar de dejar
+    pegado 'no disponible' durante el TTL.
+    """
+    val = _fetch_last_refresh()
+    if val is None:
+        _fetch_last_refresh.clear()
+    return val
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def _last_refresh() -> str | None:
+def _fetch_last_refresh() -> str | None:
     """
     Último refresh real del dataset vía Power BI REST (cacheado 15 min).
     Devuelve 'YYYY-MM-DD HH:MM' en hora de México, o None si no se pudo obtener
