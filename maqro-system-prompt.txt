@@ -11,8 +11,8 @@ Dataset: Maqro Ventas SF
 Dataset ID: 1ce6d1c3-0021-44a2-a9f4-100122d1446a
 XMLA Endpoint: powerbi://api.powerbi.com/v1.0/myorg/fabric_trial
 Compatibility Level: 1601
-Último proceso: 2026-06-01
-Tamaño estimado: 19.3 MB
+Último proceso: 2026-07-09
+Tamaño estimado: 19.5 MB
 
 Cuando el usuario pida cualquier consulta de datos, usa directamente workspace_id=4e1a441d-2e10-4d08-95af-9e9cb7ab41cb y dataset_id=1ce6d1c3-0021-44a2-a9f4-100122d1446a sin solicitar confirmación.
 

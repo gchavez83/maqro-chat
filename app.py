@@ -4,9 +4,16 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import anthropic
+import requests
 import streamlit as st
+
+# ── Power BI / Fabric (para leer el último refresh real del dataset) ──────────
+TZ_MX        = ZoneInfo("America/Mexico_City")
+WORKSPACE_ID = "4e1a441d-2e10-4d08-95af-9e9cb7ab41cb"
+DATASET_ID   = "1ce6d1c3-0021-44a2-a9f4-100122d1446a"
 
 # ── page config (must be first Streamlit call) ────────────────────────────────
 st.set_page_config(
@@ -71,6 +78,85 @@ def _load_system_prompt() -> str:
     if PROMPT_PATH.exists():
         return PROMPT_PATH.read_text(encoding="utf-8")
     return "Eres un asistente experto en el modelo semántico Maqro Ventas SF de Power BI."
+
+
+_MESES_ES = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+]
+
+
+def _current_date_block() -> str:
+    """
+    Fecha actual real, inyectada en cada llamada. Sin esto, Claude no sabe
+    qué día es y termina infiriendo el "mes actual" a partir del último dato
+    disponible (p. ej. junio), lo cual es incorrecto.
+    """
+    now = datetime.now(TZ_MX)
+    mes = _MESES_ES[now.month - 1]
+    return (
+        "\n\n# FECHA ACTUAL DEL SISTEMA (AUTORIDAD ÚNICA PARA EL TIEMPO)\n"
+        f"Hoy es {now:%Y-%m-%d}, {mes} de {now.year}.\n"
+        f'Cuando el usuario diga "este mes", "mes actual", "hoy", "este año" '
+        f"o similar, el punto de referencia es SIEMPRE esta fecha: "
+        f"mes actual = {mes} {now.year}, año actual = {now.year}.\n"
+        "NUNCA deduzcas la fecha actual a partir del último refresh del modelo "
+        "ni del último mes con datos. El modelo puede contener datos hasta un "
+        "mes anterior y aun así el mes actual es el indicado aquí. Si el mes "
+        "actual no tiene datos todavía, dilo explícitamente en vez de asumir "
+        "que el último mes con datos es el mes actual."
+    )
+
+
+def _secret(name: str, default: str = "") -> str:
+    try:
+        return st.secrets[name]
+    except (KeyError, FileNotFoundError):
+        return os.environ.get(name, default)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _last_refresh() -> str | None:
+    """
+    Último refresh real del dataset vía Power BI REST (cacheado 15 min).
+    Devuelve 'YYYY-MM-DD HH:MM' en hora de México, o None si no se pudo obtener
+    (p. ej. faltan credenciales del Service Principal en los Secrets).
+    """
+    tenant = _secret("AZURE_TENANT_ID")
+    cid    = _secret("AZURE_CLIENT_ID")
+    secret = _secret("AZURE_CLIENT_SECRET")
+    if not (tenant and cid and secret):
+        return None
+    try:
+        tok = requests.post(
+            f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+            data={
+                "client_id":     cid,
+                "client_secret": secret,
+                "scope":         "https://analysis.windows.net/powerbi/api/.default",
+                "grant_type":    "client_credentials",
+            },
+            timeout=10,
+        ).json().get("access_token")
+        if not tok:
+            return None
+        data = requests.get(
+            f"https://api.powerbi.com/v1.0/myorg/groups/{WORKSPACE_ID}"
+            f"/datasets/{DATASET_ID}/refreshes?$top=10",
+            headers={"Authorization": f"Bearer {tok}"},
+            timeout=10,
+        ).json()
+        # Toma el refresh COMPLETADO más reciente (ignora fallidos/en curso).
+        done = [r for r in data.get("value", []) if r.get("status") == "Completed"]
+        if not done:
+            return None
+        ts = done[0].get("endTime") or done[0].get("startTime")
+        if not ts:
+            return None
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(TZ_MX)
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return None
 
 
 def _get_client() -> anthropic.Anthropic:
@@ -271,6 +357,7 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
+    _refresh = _last_refresh() or "no disponible"
     st.markdown(f"""
 <p class="sidebar-label">Modelo de datos</p>
 <p class="sidebar-value">Maqro Ventas SF</p>
@@ -279,7 +366,7 @@ with st.sidebar:
 <p class="sidebar-value">claude-sonnet-4-6</p>
 <p class="sidebar-sub">Streaming &middot; MCP</p>
 <p class="sidebar-label">Datos al</p>
-<p class="sidebar-value">2026-06-01</p>
+<p class="sidebar-value">{_refresh}</p>
 <p class="sidebar-sub">Último refresh del modelo</p>
 """, unsafe_allow_html=True)
 
@@ -346,7 +433,11 @@ if user_input:
     with st.chat_message("assistant", avatar=AVATAR_DATA_URL):
         try:
             reply = st.write_stream(
-                _stream_reply(st.session_state.messages, SYSTEM_PROMPT, MCP_URL)
+                _stream_reply(
+                    st.session_state.messages,
+                    SYSTEM_PROMPT + _current_date_block(),
+                    MCP_URL,
+                )
             )
         except Exception as exc:
             error = str(exc)
